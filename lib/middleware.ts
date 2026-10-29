@@ -19,13 +19,9 @@ const authenticator = (
   res: Response,
   next: NextFunction,
 ) => {
-  const tokenData = req.headers.authorization;
-  if (!tokenData) {
-    return res.status(402).json({
-      message: "Authorization header is missing !!",
-    });
-  }
-  const token = tokenData.split(" ")[1];
+  // const access_token =
+  const token = req.cookies.access_token;
+
   if (!token) {
     return res.status(402).json({
       message: "Token is missing !!",
@@ -37,7 +33,7 @@ const authenticator = (
   if (typeof decoded !== "string") {
     req.user = {
       email: decoded.email,
-      id: decoded.userId
+      id: decoded.userId,
     };
     next();
   } else {

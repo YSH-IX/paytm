@@ -63,9 +63,13 @@ authRouter.post("/login", async (req: Request, res: Response) => {
           const token = jwt.sign({ userId, email }, JWT_SECRET, {
             expiresIn: 60 * 60,
           });
+          res.cookie("access_token", token, {
+            httpOnly: true,
+            sameSite: "lax",
+            maxAge: 3600000,
+          });
           return res.status(202).json({
             message: "Log In successfully.",
-            token,
           });
         } else {
           return res.status(504).json({
@@ -168,5 +172,11 @@ authRouter.patch(
     }
   },
 );
+authRouter.post("/logout", (req: Request, res: Response) => {
+  res.clearCookie("access_token");
+  return res.status(200).json({
+    message: "Logged out successfully",
+  });
+});
 
 export { authRouter };
