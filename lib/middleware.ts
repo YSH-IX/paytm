@@ -21,17 +21,8 @@ const authenticator = (
   next: NextFunction,
 ) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(402).json({
-        message: "Auth Header is missing !!",
-      });
-    }
-
-    console.log(authHeader);
-    
-
-    const token = authHeader?.split(" ")[1];
+  
+    const token = req.cookies.access_token;
     if (!token) {
       return res.status(402).json({
         message: "Token is missing !!",

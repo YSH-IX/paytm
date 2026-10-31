@@ -110,7 +110,7 @@ userRouter.post("/refresh", async (req: Request, res: Response) => {
       },
       jwtSecret,
       {
-        expiresIn: "15m",
+        expiresIn: "1m",
       },
     );
 
@@ -160,9 +160,14 @@ userRouter.post("/refresh", async (req: Request, res: Response) => {
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
+    res.cookie("access_token", newAccessToken, {
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 15 * 60 * 1000,
+    });
 
     return res.json({
-      accessToken: newAccessToken,
+      accessToken: "sent as a cookie",
     });
   } catch (error) {
     console.error("Refresh error : ", error);
@@ -273,7 +278,10 @@ userRouter.post("/logout", async (req: Request, res: Response) => {
 
     res.clearCookie("refresh_token", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+    });
+    res.clearCookie("access_token", {
+      httpOnly: true,
       sameSite: "lax",
     });
 

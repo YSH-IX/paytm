@@ -84,7 +84,7 @@ authRouter.post("/login", async (req: Request, res: Response) => {
               tokenType: "access",
             },
             jwtSecret,
-            { expiresIn: "15m" },
+            { expiresIn: "1m" },
           );
           const refreshToken = crypto.randomBytes(64).toString("hex");
           const refreshTokenHash = crypto
@@ -106,10 +106,16 @@ authRouter.post("/login", async (req: Request, res: Response) => {
 
             // secure: process.env.NODE_ENV === "production",
           });
+          res.cookie("access_token", accessToken, {
+            httpOnly: true,
+            sameSite: "lax",
+            maxAge: 15 * 60 * 1000,
+
+            // secure: process.env.NODE_ENV === "production",
+          });
           if (storeHash) {
             return res.status(202).json({
               message: "Log In successful.",
-              accessToken,
             });
           }
         } else {
