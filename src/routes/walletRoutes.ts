@@ -31,9 +31,18 @@ walletRouter.post(
         });
 
         if (hasWallet) {
+          const { balance, userId, id } = hasWallet;
           return res.status(201).json({
             message: "Wallet already exists.",
-            hasWallet
+            wallet: {
+              balance: balance.toLocaleString("en-US", {
+                style: "currency",
+                currency: "USD",
+              }),
+
+              userId,
+              id,
+            },
           });
         }
 
@@ -45,9 +54,18 @@ walletRouter.post(
         });
 
         if (result) {
+          const { balance, id, userId } = result;
           return res.status(200).json({
             message: "Wallet created successfully.",
-            result,
+            wallet: {
+              balance: balance.toLocaleString("en-US", {
+                style: "currency",
+                currency: "USD",
+              }),
+
+              userId,
+              id,
+            },
           });
         }
       }

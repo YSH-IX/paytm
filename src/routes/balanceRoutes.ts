@@ -22,11 +22,23 @@ balanceRouter.get(
           },
         });
 
-        if (result) {
-          return res.status(200).json({
+        if (!result) {
+          return res.status(400).json({
+            message: "You have no wallet.",
             result,
           });
         }
+        const { balance} = result;
+        res.status(200).json({
+          result: {
+            balance: balance.toLocaleString("en-US", {
+              style: "currency",
+              currency: "USD",
+            }),
+            id: result.id,
+            userId: result.userId
+          },
+        });
       }
     } catch (error) {
       res.status(401).json({

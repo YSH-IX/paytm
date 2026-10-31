@@ -8,12 +8,16 @@ import {
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { authenticator, type AuthenticateRequest } from "../../lib/middleware";
+import crypto from "node:crypto";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) throw new Error("JWT_SECRET is missing.");
+const jwtSecret = JWT_SECRET;
 
 const authRouter = Router();
-const saltRounds = 10;
+const SALT_ROUNDS = process.env.SALT_ROUNDS;
+if (!SALT_ROUNDS) throw new Error("SALT_ROUNDS is missing");
+const saltRounds = SALT_ROUNDS;
 
 async function hashPassword(password: string) {
   const hashedPassword = await bcrypt.hash(password, saltRounds);
@@ -21,12 +25,27 @@ async function hashPassword(password: string) {
 }
 
 authRouter.post("/signup", async (req: Request, res: Response) => {
+  // console.log("signup");
+
   const result = createUserSchema.safeParse(req.body);
   try {
     if (result.success) {
       const { email, password, username } = result.data;
+
       const hashedPassword = await hashPassword(password);
       if (hashedPassword) {
+        const existingUser = await prisma.user.findUnique({
+          where: {
+            email,
+          },
+        });
+
+        if (existingUser) {
+          return res.status(202).json({
+            message: `User already exist with ${email}, Login to continue`,
+          });
+        }
+
         const user = await prisma.user.create({
           data: {
             email,
@@ -52,25 +71,47 @@ authRouter.post("/login", async (req: Request, res: Response) => {
   const result = createUserSchema.safeParse(req.body);
   try {
     if (result.success) {
-      const { email, password, username } = result.data;
+      const { email, password } = result.data;
       const user = await prisma.user.findFirst({
-        where: { email },
+        where: { email: email.toLowerCase() },
       });
       if (user) {
         const isPasswordCorrect = await bcrypt.compare(password, user.password);
         if (isPasswordCorrect) {
-          const userId = user.id;
-          const token = jwt.sign({ userId, email }, JWT_SECRET, {
-            expiresIn: 60 * 60,
+          const accessToken = jwt.sign(
+            {
+              id: user.id,
+              tokenType: "access",
+            },
+            jwtSecret,
+            { expiresIn: "15m" },
+          );
+          const refreshToken = crypto.randomBytes(64).toString("hex");
+          const refreshTokenHash = crypto
+            .createHash("sha256")
+            .update(refreshToken)
+            .digest("hex");
+
+          const storeHash = await prisma.session.create({
+            data: {
+              refreshTokenHash,
+              userId: user.id,
+              expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            },
           });
-          res.cookie("access_token", token, {
+          res.cookie("refresh_token", refreshToken, {
             httpOnly: true,
             sameSite: "lax",
-            maxAge: 3600000,
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+
+            // secure: process.env.NODE_ENV === "production",
           });
-          return res.status(202).json({
-            message: "Log In successfully.",
-          });
+          if (storeHash) {
+            return res.status(202).json({
+              message: "Log In successful.",
+              accessToken,
+            });
+          }
         } else {
           return res.status(504).json({
             message: "Password didn't match.",
@@ -91,92 +132,6 @@ authRouter.post("/login", async (req: Request, res: Response) => {
       message: error,
     });
   }
-});
-
-authRouter.put(
-  "/update/password",
-  authenticator,
-  async (req: AuthenticateRequest, res: Response) => {
-    const result = updatePasswordSchema.safeParse(req.body);
-    const userId = req.user?.id;
-
-    if (!userId || typeof userId === undefined)
-      return res.status(502).send("userId is missing.");
-
-    try {
-      if (result.success) {
-        const { password } = result.data;
-        if (!password) return res.status(502).send("password is missing.");
-
-        const newHashedPassword = await hashPassword(password);
-        const updatedUser = await prisma.user.update({
-          where: {
-            id: userId,
-          },
-          data: {
-            password: newHashedPassword,
-          },
-        });
-        return res.status(202).json({
-          message: "User details updated successfully.",
-          data: updatedUser,
-        });
-      } else {
-        res.status(502).json({
-          message: result.error,
-        });
-      }
-    } catch (error) {
-      return res.status(404).json({
-        message: error,
-      });
-    }
-  },
-);
-authRouter.patch(
-  "/update/userData",
-  authenticator,
-  async (req: AuthenticateRequest, res: Response) => {
-    const result = updateUserSchema.safeParse(req.body);
-    const userId = req.user?.id;
-
-    if (!userId || typeof userId === undefined)
-      return res.status(502).send("userId is missing.");
-
-    try {
-      if (result.success) {
-        const { email, username } = result.data;
-
-        const updatedUser = await prisma.user.update({
-          where: {
-            id: userId,
-          },
-          data: {
-            email,
-            username,
-          },
-        });
-        return res.status(202).json({
-          message: "User details updated successfully.",
-          data: updatedUser,
-        });
-      } else {
-        res.status(502).json({
-          message: result.error,
-        });
-      }
-    } catch (error) {
-      return res.status(404).json({
-        message: error,
-      });
-    }
-  },
-);
-authRouter.post("/logout", (req: Request, res: Response) => {
-  res.clearCookie("access_token");
-  return res.status(200).json({
-    message: "Logged out successfully",
-  });
 });
 
 export { authRouter };

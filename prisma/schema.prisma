@@ -19,14 +19,27 @@ enum PaymentStatus {
 }
 
 model User {
-  id                   Int           @id @default(autoincrement())
-  username             String?
-  email                String        @unique
-  password             String
-  createdAt            DateTime      @default(now())
+  id        Int      @id @default(autoincrement())
+  username  String?
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+
   wallet               Wallet?
   sentTransactions     Transaction[] @relation("Sender")
   receivedTransactions Transaction[] @relation("Receiver")
+  sesssions            Session[]
+}
+
+model Session {
+  id               Int       @id @default(autoincrement())
+  userId           Int
+  refreshTokenHash String    @unique
+  createdAt        DateTime  @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime?
+
+  user User @relation(references: [id], fields: [userId])
 }
 
 model Wallet {

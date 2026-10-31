@@ -17,8 +17,8 @@ transactionRouter.get(
     try {
       const result = await prisma.transaction.findMany({
         where: {
-          
-        }
+          senderId: userId,
+        },
       });
       if (result.length === 0) {
         return res.status(200).json({

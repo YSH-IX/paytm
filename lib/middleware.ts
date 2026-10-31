@@ -1,6 +1,7 @@
 import { type Response, type Request, type NextFunction } from "express";
 
-import jwt from "jsonwebtoken";
+import jwt, { type JwtPayload } from "jsonwebtoken";
+import { prisma } from "./prisma";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -9,36 +10,52 @@ if (!JWT_SECRET) {
 
 export interface AuthenticateRequest extends Request {
   user?: {
-    email: string;
     id: number;
   };
 }
+
 
 const authenticator = (
   req: AuthenticateRequest,
   res: Response,
   next: NextFunction,
 ) => {
-  // const access_token =
-  const token = req.cookies.access_token;
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(402).json({
+        message: "Auth Header is missing !!",
+      });
+    }
 
-  if (!token) {
-    return res.status(402).json({
-      message: "Token is missing !!",
-    });
-  }
+    console.log(authHeader);
+    
 
-  const decoded = jwt.verify(token, JWT_SECRET);
+    const token = authHeader?.split(" ")[1];
+    if (!token) {
+      return res.status(402).json({
+        message: "Token is missing !!",
+      });
+    }
 
-  if (typeof decoded !== "string") {
-    req.user = {
-      email: decoded.email,
-      id: decoded.userId,
-    };
-    next();
-  } else {
-    return res.status(401).json({
-      message: decoded,
+    const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+    console.log(decoded);
+    
+
+    if (decoded.tokenType === "access") {
+      req.user = {
+        id: decoded.id,
+      };
+      next();
+    } else {
+      return res.status(401).json({
+        message: decoded,
+      });
+    }
+  } catch (error) {
+    console.error("Middleware error : ", error);
+    res.status(400).json({
+      message: error,
     });
   }
 };
