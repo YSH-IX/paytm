@@ -110,7 +110,7 @@ userRouter.post("/refresh", async (req: Request, res: Response) => {
       },
       jwtSecret,
       {
-        expiresIn: "1m",
+        expiresIn: "15m",
       },
     );
 
@@ -157,13 +157,15 @@ userRouter.post("/refresh", async (req: Request, res: Response) => {
 
     res.cookie("refresh_token", newRefreshToken, {
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: "none",
       maxAge: 7 * 24 * 60 * 60 * 1000,
+      secure: true,
     });
     res.cookie("access_token", newAccessToken, {
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: "none",
       maxAge: 15 * 60 * 1000,
+      secure: true,
     });
 
     return res.json({
